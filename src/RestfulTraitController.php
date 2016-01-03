@@ -66,6 +66,11 @@ trait RestfulTraitController
 	public function create()
 	{
 
+		$modelName = $this->modelName;
+		$model = new $modelName;
+
+		return Response::json($model, 200);
+
 	}
 
 
@@ -74,24 +79,17 @@ trait RestfulTraitController
 	 *
 	 * @return Response
 	 */
-	public function store()
+	public function store($inputs = null)
 	{
 
-		$inputs = Request::json()->all();
+		if ($inputs === null) {
+			$inputs = Request::json()->all();
+		}
 
 		$modelName = $this->modelName;
 		$model = new $modelName;
-		$model->fill($inputs);
 
-		if (!$model->isValid('insert')) {
-			return Response::json($model->getErrors(), 400);
-		}
-
-		if (!$model->save()) {
-			return Response::json($model->getErrors(), 400);
-		}
-
-		return Response::json($model, 200);
+		return $this->save($model, $inputs, 'insert');
 
 	}
 
@@ -147,10 +145,12 @@ trait RestfulTraitController
 	 *
 	 * @return Response
 	 */
-	public function update($id)
+	public function update($id, $inputs = null)
 	{
 
-		$inputs = Request::json()->all();
+		if ($inputs === null) {
+			$inputs = Request::json()->all();
+		}
 
 		$modelName = $this->modelName;
 		$model = $modelName::find($id);
@@ -159,17 +159,8 @@ trait RestfulTraitController
 			return Response::json($model, 404);
 		}
 
-		$model->fill($inputs);
+		return $this->save($model, $inputs, 'update');
 
-		if (!$model->isValid('update')) {
-			return Response::json($model->getErrors(), 400);
-		}
-
-		if (!$model->save()) {
-			return Response::json($model->getErrors(), 400);
-		}
-
-		return Response::json($model, 200);
 	}
 
 
@@ -197,6 +188,32 @@ trait RestfulTraitController
 		}
 
 		return Response::json($result, 200);
+
+	}
+
+	/**
+	 * Common save method for update and insert action
+	 *
+	 * @param $model
+	 * @param $inputs
+	 * @param $action
+	 *
+	 * @return \Illuminate\Http\JsonResponse
+	 */
+	protected function save($model, $inputs, $action)
+	{
+
+		$model->fill($inputs);
+
+		if (!$model->isValid($action)) {
+			return Response::json($model->getErrors(), 400);
+		}
+
+		if (!$model->save()) {
+			return Response::json($model->getErrors(), 400);
+		}
+
+		return Response::json($model, 200);
 
 	}
 
