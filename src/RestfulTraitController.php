@@ -5,6 +5,7 @@ namespace Schalkt\Scharest;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\MessageBag;
 
 /**
  * Class RestfulTraitController
@@ -79,7 +80,7 @@ trait RestfulTraitController
 	 *
 	 * @return Response
 	 */
-	public function store($inputs = null)
+	public function store($inputs = null, $callback = null)
 	{
 
 		if ($inputs === null) {
@@ -89,7 +90,7 @@ trait RestfulTraitController
 		$modelName = $this->modelName;
 		$model = new $modelName;
 
-		return $this->save($model, $inputs, 'insert');
+		return $this->save($model, $inputs, 'insert', $callback);
 
 	}
 
@@ -145,7 +146,7 @@ trait RestfulTraitController
 	 *
 	 * @return Response
 	 */
-	public function update($id, $inputs = null)
+	public function update($id, $inputs = null, $callback = null)
 	{
 
 		if ($inputs === null) {
@@ -159,7 +160,7 @@ trait RestfulTraitController
 			return Response::json($model, 404);
 		}
 
-		return $this->save($model, $inputs, 'update');
+		return $this->save($model, $inputs, 'update', $callback);
 
 	}
 
@@ -200,22 +201,50 @@ trait RestfulTraitController
 	 *
 	 * @return \Illuminate\Http\JsonResponse
 	 */
-	protected function save($model, $inputs, $action)
+	protected function save($model, $inputs, $action, $callback = null)
 	{
 
-		$model->fill($inputs);
+		try {
 
-		if (!$model->isValid($action)) {
-			return Response::json($model->getErrors(), 400);
+			$model->fill($inputs);
+
+			if (!$model->isValid($action)) {
+				return Response::json($model->getErrors(), 400);
+			}
+
+			if (!$model->save()) {
+				return Response::json($model->getErrors(), 400);
+			}
+
+			if (is_callable($callback)) {
+				$callback($model);
+			}
+
+			return Response::json($model, 200);
+
+		} catch (\Exception $e) {
+
+			return $this->responseException($e);
+
 		}
-
-		if (!$model->save()) {
-			return Response::json($model->getErrors(), 400);
-		}
-
-		return Response::json($model, 200);
 
 	}
 
+	/**
+	 * Response exception message and code
+	 *
+	 * @param $e
+	 *
+	 * @return \Illuminate\Http\JsonResponse
+	 */
+	protected function responseException($e)
+	{
+
+		$messageBag = new MessageBag;
+		$messageBag->add('exception', $e->getMessage());
+
+		return Response::json($messageBag->toArray(), $e->getCode());
+
+	}
 
 }
